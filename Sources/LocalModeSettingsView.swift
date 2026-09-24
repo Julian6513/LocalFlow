@@ -2,10 +2,6 @@ import SwiftUI
 
 struct LocalModeSettingsView: View {
     @EnvironmentObject private var appState: AppState
-    @State private var downloadTask: Task<Void, Never>?
-    @State private var isDownloading = false
-    @State private var status: String?
-    @State private var failed = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -15,6 +11,7 @@ struct LocalModeSettingsView: View {
                 }
             }
             .pickerStyle(.segmented)
+            .disabled(appState.isRecording || appState.isTranscribing)
 
             ForEach(LocalDictationMode.allCases) { mode in
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -30,44 +27,26 @@ struct LocalModeSettingsView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            if isDownloading {
+            if let preparationStage = appState.localModelPreparationStage,
+               preparationStage != .ready {
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
-                    Text("Downloading \(appState.dictationMode.title) speech model…")
+                    Text(preparationStage.message(for: appState.dictationMode))
                 }
                 .font(.caption)
-            } else if let status {
+            } else if let error = appState.localModelPreparationError {
                 HStack(spacing: 8) {
-                    Label(status, systemImage: failed ? "exclamationmark.triangle.fill" : "checkmark.circle.fill")
-                        .foregroundStyle(failed ? .orange : .green)
-                    if failed {
-                        Button("Retry") { prepare(appState.dictationMode) }
-                    }
+                    Label(error, systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    Button("Retry") { appState.prepareSelectedModel() }
                 }
                 .font(.caption)
+            } else if appState.localModelPreparationStage == .ready {
+                Label("\(appState.dictationMode.title) model download complete — ready on this Mac", systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .font(.caption)
             }
         }
-        .onAppear { prepare(appState.dictationMode) }
-        .onChange(of: appState.dictationMode) { prepare($0) }
-        .onDisappear { downloadTask?.cancel() }
-    }
-
-    private func prepare(_ mode: LocalDictationMode) {
-        downloadTask?.cancel()
-        isDownloading = true
-        status = nil
-        failed = false
-        downloadTask = Task {
-            do {
-                _ = try await LocalModelManager.shared.ensureReady(for: mode)
-                guard !Task.isCancelled, appState.dictationMode == mode else { return }
-                status = "\(mode.title) model ready"
-            } catch {
-                guard !Task.isCancelled, appState.dictationMode == mode else { return }
-                failed = true
-                status = error.localizedDescription
-            }
-            if appState.dictationMode == mode { isDownloading = false }
-        }
+        .onAppear { appState.prepareSelectedModel() }
     }
 }

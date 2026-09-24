@@ -19,6 +19,7 @@ TEST_PRODUCTION_SOURCES = \
 	Sources/LLMCooldownManager.swift \
 	Sources/LocalDictationMode.swift \
 	Sources/LocalModelManager.swift \
+	Sources/TranscriptionService.swift \
 	Sources/ModelConfiguration.swift \
 	Sources/TranscriptionErrorPresentationCore.swift \
 	Sources/TranscriptTextCore.swift \

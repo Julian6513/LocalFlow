@@ -292,6 +292,7 @@ final class AppState: ObservableObject, @unchecked Sendable {
         didSet {
             UserDefaults.standard.set(dictationMode.rawValue, forKey: dictationModeStorageKey)
             rebuildContextService()
+            prepareSelectedModel()
         }
     }
 
@@ -571,12 +572,17 @@ final class AppState: ObservableObject, @unchecked Sendable {
     @Published var selectedSettingsTab: SettingsTab? = .general
     @Published var pipelineHistory: [PipelineHistoryItem] = []
     @Published var debugStatusMessage = "Idle"
+    @Published var localModelPreparationStage: LocalModelPreparationStage?
+    @Published var localModelPreparationError: String?
     @Published var debugShowsUpdateReminderAfterDictation = false
     @Published var lastRawTranscript = ""
     @Published var lastPostProcessedTranscript = ""
     @Published var lastPostProcessingPrompt = ""
     @Published var lastContextSummary = ""
     @Published var lastPostProcessingStatus = ""
+    private var preparingLocalMode: LocalDictationMode?
+    private var localModelPreparationTask: Task<URL, Error>?
+    private var localModelPreparationID: UUID?
     @Published var lastContextScreenshotDataURL: String? = nil
     @Published var lastContextScreenshotStatus = "No screenshot"
     @Published var lastContextAppName: String = ""
@@ -1038,6 +1044,57 @@ final class AppState: ObservableObject, @unchecked Sendable {
 
     func makeTranscriptionService() throws -> TranscriptionService {
         try TranscriptionService(mode: dictationMode, language: resolvedTranscriptionLanguage)
+    }
+
+    func prepareSelectedModel() {
+        let mode = dictationMode
+        if preparingLocalMode == mode, localModelPreparationTask != nil { return }
+
+        localModelPreparationTask?.cancel()
+        let requestID = UUID()
+        preparingLocalMode = mode
+        localModelPreparationID = requestID
+        localModelPreparationStage = .checking
+        localModelPreparationError = nil
+        localModelPreparationTask = Task { [weak self] in
+            guard let self else { throw CancellationError() }
+            do {
+                let url = try await LocalModelManager.shared.ensureReady(for: mode) { stage in
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self,
+                              self.localModelPreparationID == requestID,
+                              self.localModelPreparationTask != nil else { return }
+                        self.localModelPreparationStage = stage
+                        self.showLocalTranscriptionStage(.model(stage), mode: mode)
+                    }
+                }
+                try Task.checkCancellation()
+                await MainActor.run { [weak self] in
+                    guard let self, self.localModelPreparationID == requestID else { return }
+                    self.localModelPreparationStage = .ready
+                    self.localModelPreparationTask = nil
+                }
+                return url
+            } catch {
+                await MainActor.run { [weak self] in
+                    guard let self, self.localModelPreparationID == requestID else { return }
+                    self.localModelPreparationStage = nil
+                    self.localModelPreparationTask = nil
+                    if !Task.isCancelled {
+                        self.localModelPreparationError = error.localizedDescription
+                    }
+                }
+                throw error
+            }
+        }
+    }
+
+    private func showLocalTranscriptionStage(_ stage: LocalTranscriptionStage, mode: LocalDictationMode) {
+        guard isTranscribing else { return }
+        let message = stage.message(for: mode)
+        statusText = message
+        debugStatusMessage = message
+        overlayManager.updateTranscribingStatus(message)
     }
 
     private var resolvedTranscriptionLanguage: String? {
@@ -2471,7 +2528,8 @@ final class AppState: ObservableObject, @unchecked Sendable {
     private static func resolveRawTranscript(
         realtimeService: RealtimeTranscriptionService?,
         fileService: TranscriptionService,
-        fileURL: URL
+        fileURL: URL,
+        onStage: @escaping @Sendable (LocalTranscriptionStage) -> Void
     ) async throws -> String {
         if let realtimeService {
             do {
@@ -2485,10 +2543,10 @@ final class AppState: ObservableObject, @unchecked Sendable {
                 throw CancellationError()
             } catch {
                 try Task.checkCancellation()
-                return try await fileService.transcribe(fileURL: fileURL)
+                return try await fileService.transcribe(fileURL: fileURL, onStage: onStage)
             }
         }
-        return try await fileService.transcribe(fileURL: fileURL)
+        return try await fileService.transcribe(fileURL: fileURL, onStage: onStage)
     }
 
     private func stopAndTranscribe() {
@@ -2568,11 +2626,23 @@ final class AppState: ObservableObject, @unchecked Sendable {
                     activeRealtime?.cancel()
                 }
                 do {
+                    let mode = self.dictationMode
+                    if self.preparingLocalMode == mode,
+                       let modelTask = self.localModelPreparationTask {
+                        _ = try await modelTask.value
+                        try Task.checkCancellation()
+                    }
                     let transcriptionService = try self.makeTranscriptionService()
                     async let transcript = Self.resolveRawTranscript(
                         realtimeService: activeRealtime,
                         fileService: transcriptionService,
-                        fileURL: transcriptionFileURL
+                        fileURL: transcriptionFileURL,
+                        onStage: { [weak self] stage in
+                            DispatchQueue.main.async { [weak self] in
+                                guard let self, self.isTranscribing else { return }
+                                self.showLocalTranscriptionStage(stage, mode: mode)
+                            }
+                        }
                     )
                     let rawTranscript = try await transcript
                     let parsedTranscript = Self.parseTranscriptCommands(

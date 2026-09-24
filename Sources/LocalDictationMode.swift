@@ -1,6 +1,6 @@
 import Foundation
 
-enum LocalDictationMode: String, CaseIterable, Identifiable {
+enum LocalDictationMode: String, CaseIterable, Identifiable, Sendable {
     case normal
     case heavy
     case extraHeavy

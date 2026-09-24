@@ -17,6 +17,20 @@ enum TranscriptionError: LocalizedError {
     }
 }
 
+enum LocalTranscriptionStage: Sendable, Equatable {
+    case model(LocalModelPreparationStage)
+    case transcribing
+    case retryingWithoutGPU
+
+    func message(for mode: LocalDictationMode) -> String {
+        switch self {
+        case .model(let stage): stage.message(for: mode)
+        case .transcribing: "\(mode.title) model ready — transcribing locally…"
+        case .retryingWithoutGPU: "\(mode.title) model ready — retrying on CPU…"
+        }
+    }
+}
+
 /// Runs the selected Whisper model in a local whisper.cpp process. Audio is
 /// passed as a file path, never uploaded to a transcription provider.
 final class TranscriptionService {
@@ -28,31 +42,86 @@ final class TranscriptionService {
         self.language = language?.isEmpty == false ? language! : "auto"
     }
 
-    func transcribe(fileURL: URL) async throws -> String {
+    func transcribe(
+        fileURL: URL,
+        onStage: (@Sendable (LocalTranscriptionStage) -> Void)? = nil
+    ) async throws -> String {
         guard let executable = Self.whisperExecutable() else {
             throw TranscriptionError.missingRuntime
         }
-        let modelURL = try await LocalModelManager.shared.ensureReady(for: mode)
+        let modelURL = try await LocalModelManager.shared.ensureReady(for: mode) { stage in
+            onStage?(.model(stage))
+        }
         try Task.checkCancellation()
+        return try await transcribe(
+            fileURL: fileURL,
+            modelURL: modelURL,
+            executable: executable,
+            onStage: onStage
+        )
+    }
 
+    // Keep the process runner separate so a synthetic CLI can verify the CPU fallback.
+    func transcribe(
+        fileURL: URL,
+        modelURL: URL,
+        executable: URL,
+        onStage: (@Sendable (LocalTranscriptionStage) -> Void)? = nil
+    ) async throws -> String {
         let outputPrefix = FileManager.default.temporaryDirectory
             .appendingPathComponent("localflow-\(UUID().uuidString)")
         let outputURL = outputPrefix.appendingPathExtension("txt")
         defer { try? FileManager.default.removeItem(at: outputURL) }
 
+        onStage?(.transcribing)
+        var status = try await runWhisper(
+            executable: executable,
+            modelURL: modelURL,
+            fileURL: fileURL,
+            outputPrefix: outputPrefix,
+            useGPU: true
+        )
+        if status != 0 {
+            try Task.checkCancellation()
+            onStage?(.retryingWithoutGPU)
+            try? FileManager.default.removeItem(at: outputURL)
+            status = try await runWhisper(
+                executable: executable,
+                modelURL: modelURL,
+                fileURL: fileURL,
+                outputPrefix: outputPrefix,
+                useGPU: false
+            )
+        }
+        try Task.checkCancellation()
+        guard status == 0 else { throw TranscriptionError.inferenceFailed }
+        guard let transcript = try? String(contentsOf: outputURL, encoding: .utf8)
+            .trimmingCharacters(in: .whitespacesAndNewlines), !transcript.isEmpty else {
+            throw TranscriptionError.emptyResponse
+        }
+        return transcript
+    }
+
+    private func runWhisper(
+        executable: URL,
+        modelURL: URL,
+        fileURL: URL,
+        outputPrefix: URL,
+        useGPU: Bool
+    ) async throws -> Int32 {
         let process = Process()
         process.executableURL = executable
-        process.arguments = [
-            "-m", modelURL.path,
-            "-f", fileURL.path,
-            "-l", language,
-            "-otxt", "-of", outputPrefix.path,
-            "-np"
-        ]
+        process.arguments = Self.arguments(
+            modelURL: modelURL,
+            fileURL: fileURL,
+            outputPrefix: outputPrefix,
+            language: language,
+            useGPU: useGPU
+        )
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
 
-        let status = try await withTaskCancellationHandler {
+        return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Int32, Error>) in
                 process.terminationHandler = { finished in
                     continuation.resume(returning: finished.terminationStatus)
@@ -68,13 +137,24 @@ final class TranscriptionService {
         } onCancel: {
             if process.isRunning { process.terminate() }
         }
-        try Task.checkCancellation()
-        guard status == 0 else { throw TranscriptionError.inferenceFailed }
-        guard let transcript = try? String(contentsOf: outputURL, encoding: .utf8)
-            .trimmingCharacters(in: .whitespacesAndNewlines), !transcript.isEmpty else {
-            throw TranscriptionError.emptyResponse
-        }
-        return transcript
+    }
+
+    static func arguments(
+        modelURL: URL,
+        fileURL: URL,
+        outputPrefix: URL,
+        language: String,
+        useGPU: Bool
+    ) -> [String] {
+        var arguments = [
+            "-m", modelURL.path,
+            "-f", fileURL.path,
+            "-l", language,
+            "-otxt", "-of", outputPrefix.path,
+            "-np"
+        ]
+        if !useGPU { arguments.append("-ng") }
+        return arguments
     }
 
     private static func whisperExecutable() -> URL? {

@@ -2,7 +2,7 @@ import Foundation
 
 @main
 struct LocalFlowTests {
-    static func main() {
+    static func main() async throws {
         AppContextServiceTests.run()
         ModelConfigurationTests.run()
         LocalDictationModeTests.run()
@@ -10,6 +10,7 @@ struct LocalFlowTests {
         SemanticVersionTests.run()
         LLMCooldownManagerTests.run()
         TranscriptionErrorPresentationCoreTests.run()
+        try await LocalTranscriptionTests.run()
         TranscriptTextCoreTests.run()
         print("LocalFlowTests passed")
     }
