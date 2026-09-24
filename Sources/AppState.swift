@@ -22,7 +22,6 @@ struct PrecomputedMacro {
 
 enum SettingsTab: String, CaseIterable, Identifiable {
     case general
-    case prompts
     case macros
     case runLog
     case debug
@@ -38,7 +37,6 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .general: return "General"
-        case .prompts: return "Prompts"
         case .macros: return "Voice Macros"
         case .runLog: return "Run Log"
         case .debug: return "Debug"
@@ -48,7 +46,6 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     var icon: String {
         switch self {
         case .general: return "gearshape"
-        case .prompts: return "text.bubble"
         case .macros: return "music.mic"
         case .runLog: return "clock.arrow.circlepath"
         case .debug: return "wrench.and.screwdriver"
@@ -58,7 +55,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
 
 enum AppBuild {
     static var isDevBundle: Bool {
-        (Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String) == "FreeFlow Dev"
+        (Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String) == "LocalFlow Dev"
     }
 }
 
@@ -198,7 +195,8 @@ final class AppState: ObservableObject, @unchecked Sendable {
         case muted(previouslyMuted: Bool)
     }
 
-    private let apiKeyStorageKey = "groq_api_key"
+    private let apiKeyStorageKey = "groq_api_key" // Legacy setting; never used for local inference.
+    private let dictationModeStorageKey = "local_dictation_mode"
     private let apiBaseURLStorageKey = "api_base_url"
     private let transcriptionModelStorageKey = "transcription_model"
     private let transcriptionAPIURLStorageKey = "transcription_api_url"
@@ -242,7 +240,7 @@ final class AppState: ObservableObject, @unchecked Sendable {
     let maxPipelineHistoryCount = 20
     static let defaultContextScreenshotMaxDimension = Int(AppContextService.defaultScreenshotMaxDimension)
     static let contextScreenshotDimensionOptions = [1024, 768, 640, 512]
-    static let defaultTranscriptionModel = "whisper-large-v3"
+    static let defaultTranscriptionModel = "small"
     static let transcriptionLanguageOptions: [(code: String, name: String)] = [
         ("", "Auto-detect"),
         ("en", "English"),
@@ -275,9 +273,9 @@ final class AppState: ObservableObject, @unchecked Sendable {
         ("hu", "Hungarian"),
         ("ca", "Catalan")
     ]
-    static let defaultPostProcessingModel = "openai/gpt-oss-20b"
-    static let defaultPostProcessingFallbackModel = "qwen/qwen3.6-27b"
-    static let defaultContextModel = "qwen/qwen3.6-27b"
+    static let defaultPostProcessingModel = ""
+    static let defaultPostProcessingFallbackModel = ""
+    static let defaultContextModel = ""
     private static let deprecatedDefaultPostProcessingFallbackModel = "meta-llama/llama-4-scout-17b-16e-instruct"
     private static let deprecatedDefaultContextModel = "meta-llama/llama-4-scout-17b-16e-instruct"
     private static let trailingPressEnterCommandPattern = try! NSRegularExpression(
@@ -287,6 +285,13 @@ final class AppState: ObservableObject, @unchecked Sendable {
     @Published var hasCompletedSetup: Bool {
         didSet {
             UserDefaults.standard.set(hasCompletedSetup, forKey: "hasCompletedSetup")
+        }
+    }
+
+    @Published var dictationMode: LocalDictationMode {
+        didSet {
+            UserDefaults.standard.set(dictationMode.rawValue, forKey: dictationModeStorageKey)
+            rebuildContextService()
         }
     }
 
@@ -629,6 +634,7 @@ final class AppState: ObservableObject, @unchecked Sendable {
     init() {
         UserDefaults.standard.removeObject(forKey: "force_http2_transcription")
         let hasCompletedSetup = UserDefaults.standard.bool(forKey: "hasCompletedSetup")
+        let dictationMode = LocalDictationMode(rawValue: UserDefaults.standard.string(forKey: dictationModeStorageKey) ?? "") ?? .normal
         let apiKey = Self.loadStoredAPIKey(account: apiKeyStorageKey)
         let apiBaseURL = Self.loadStoredAPIBaseURL(account: "api_base_url")
         let transcriptionModel = UserDefaults.standard.string(forKey: transcriptionModelStorageKey) ?? Self.defaultTranscriptionModel
@@ -675,9 +681,7 @@ final class AppState: ObservableObject, @unchecked Sendable {
             : Self.defaultContextScreenshotMaxDimension
         let contextScreenshotMaxDimension = Self.normalizedContextScreenshotMaxDimension(storedContextScreenshotMaxDimension)
         let shortcutStartDelay = max(0, UserDefaults.standard.double(forKey: shortcutStartDelayStorageKey))
-        let isCommandModeEnabled = UserDefaults.standard.object(forKey: commandModeEnabledStorageKey) == nil
-            ? false
-            : UserDefaults.standard.bool(forKey: commandModeEnabledStorageKey)
+        let isCommandModeEnabled = false // Dictation-only modes do not transform selected text.
         let commandModeStyle = CommandModeStyle(
             rawValue: UserDefaults.standard.string(forKey: commandModeStyleStorageKey) ?? ""
         ) ?? .automatic
@@ -687,9 +691,9 @@ final class AppState: ObservableObject, @unchecked Sendable {
         let preserveClipboard = UserDefaults.standard.object(forKey: preserveClipboardStorageKey) == nil
             ? true
             : UserDefaults.standard.bool(forKey: preserveClipboardStorageKey)
-        let preserveExactWording = UserDefaults.standard.bool(forKey: preserveExactWordingStorageKey)
+        let preserveExactWording = true
         let keepDictationInClipboardHistory = UserDefaults.standard.bool(forKey: keepDictationInClipboardHistoryStorageKey)
-        let realtimeStreamingEnabled = UserDefaults.standard.bool(forKey: realtimeStreamingEnabledStorageKey)
+        let realtimeStreamingEnabled = false // Local Whisper runs after recording.
         let realtimeStreamingModel = UserDefaults.standard.string(forKey: realtimeStreamingModelStorageKey) ?? ""
         let dictationAudioInterruptionEnabled = UserDefaults.standard.bool(
             forKey: dictationAudioInterruptionEnabledStorageKey
@@ -727,13 +731,14 @@ final class AppState: ObservableObject, @unchecked Sendable {
         let selectedMicrophoneID = UserDefaults.standard.string(forKey: selectedMicrophoneStorageKey) ?? "default"
 
         self.contextService = Self.makeAppContextService(
-            apiKey: apiKey,
-            baseURL: apiBaseURL,
+            apiKey: "",
+            baseURL: "http://127.0.0.1",
             customContextPrompt: customContextPrompt,
-            contextModel: contextModel,
+            contextModel: "",
             contextScreenshotMaxDimension: contextScreenshotMaxDimension
         )
         self.hasCompletedSetup = hasCompletedSetup
+        self.dictationMode = dictationMode
         self.apiKey = apiKey
         self.apiBaseURL = apiBaseURL
         self.transcriptionAPIURL = transcriptionAPIURL
@@ -844,7 +849,7 @@ final class AppState: ObservableObject, @unchecked Sendable {
         }
     }
 
-    static let defaultAPIBaseURL = "https://api.groq.com/openai/v1"
+    static let defaultAPIBaseURL = "http://127.0.0.1"
 
     private struct StoredShortcutConfiguration {
         let hold: ShortcutBinding
@@ -978,10 +983,10 @@ final class AppState: ObservableObject, @unchecked Sendable {
 
     func makeAppContextService() -> AppContextService {
         Self.makeAppContextService(
-            apiKey: apiKey,
-            baseURL: apiBaseURL,
+            apiKey: "",
+            baseURL: "http://127.0.0.1",
             customContextPrompt: customContextPrompt,
-            contextModel: contextModel,
+            contextModel: "",
             contextScreenshotMaxDimension: contextScreenshotMaxDimension
         )
     }
@@ -1032,12 +1037,7 @@ final class AppState: ObservableObject, @unchecked Sendable {
     }
 
     func makeTranscriptionService() throws -> TranscriptionService {
-        try TranscriptionService(
-            apiKey: resolvedTranscriptionAPIKey,
-            baseURL: resolvedTranscriptionBaseURL,
-            transcriptionModel: transcriptionModel,
-            language: resolvedTranscriptionLanguage
-        )
+        try TranscriptionService(mode: dictationMode, language: resolvedTranscriptionLanguage)
     }
 
     private var resolvedTranscriptionLanguage: String? {
@@ -1074,7 +1074,7 @@ final class AppState: ObservableObject, @unchecked Sendable {
         return audioDir
     }
 
-    /// URL of the flag file written while FreeFlow is actively recording.
+    /// URL of the flag file written while LocalFlow is actively recording.
     ///
     /// External tools (voice assistants, TTS barge-in pipelines, conversation
     /// apps) can poll this file to know when the user is dictating. The file
@@ -1082,11 +1082,11 @@ final class AppState: ObservableObject, @unchecked Sendable {
     /// Contents are the UNIX timestamp (seconds, float) of when recording
     /// started — useful for stale-flag detection after an unclean exit.
     ///
-    /// Path: `~/Library/Application Support/FreeFlow/is-recording`
-    /// (or `FreeFlow Dev/is-recording` when running the dev bundle).
+    /// Path: `~/Library/Application Support/LocalFlow/is-recording`
+    /// (or `LocalFlow Dev/is-recording` when running the dev bundle).
     static func recordingStateFlagURL() -> URL {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "FreeFlow"
+        let appName = Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String ?? "LocalFlow"
         return appSupport.appendingPathComponent("\(appName)/is-recording")
     }
 
@@ -1190,13 +1190,6 @@ final class AppState: ObservableObject, @unchecked Sendable {
             screenshotError: nil
         )
 
-        let postProcessingService = PostProcessingService(
-            apiKey: apiKey,
-            baseURL: apiBaseURL,
-            preferredModel: postProcessingModel,
-            preferredFallbackModel: postProcessingFallbackModel,
-            instructionExecutionGuardEnabled: instructionExecutionGuardEnabled
-        )
         let capturedCustomVocabulary = customVocabulary
         let capturedCustomSystemPrompt = customSystemPrompt
 
@@ -1220,7 +1213,6 @@ final class AppState: ObservableObject, @unchecked Sendable {
                     parsedTranscript.transcript,
                     intent: restoredIntent,
                     context: restoredContext,
-                    postProcessingService: postProcessingService,
                     customVocabulary: capturedCustomVocabulary,
                     customSystemPrompt: capturedCustomSystemPrompt,
                     outputLanguage: self.outputLanguage,
@@ -2163,13 +2155,13 @@ final class AppState: ObservableObject, @unchecked Sendable {
 
     private func beginCriticalDictationActivity() {
         guard !automaticTerminationDisabled else { return }
-        ProcessInfo.processInfo.disableAutomaticTermination("FreeFlow dictation in progress")
+        ProcessInfo.processInfo.disableAutomaticTermination("LocalFlow dictation in progress")
         automaticTerminationDisabled = true
     }
 
     private func endCriticalDictationActivity() {
         guard automaticTerminationDisabled else { return }
-        ProcessInfo.processInfo.enableAutomaticTermination("FreeFlow dictation in progress")
+        ProcessInfo.processInfo.enableAutomaticTermination("LocalFlow dictation in progress")
         automaticTerminationDisabled = false
     }
 
@@ -2244,7 +2236,6 @@ final class AppState: ObservableObject, @unchecked Sendable {
                 os_log(.info, log: recordingLog, "audioRecorder.startRecording() done: %.3fms", (CFAbsoluteTimeGetCurrent() - t0) * 1000)
                 DispatchQueue.main.async {
                     guard self.isRecording, self.activeRecordingTriggerMode != nil else { return }
-                    self.startContextCapture()
                     self.audioLevelCancellable = self.audioRecorder.$audioLevel
                         .receive(on: DispatchQueue.main)
                         .sink { [weak self] level in
@@ -2443,7 +2434,7 @@ final class AppState: ObservableObject, @unchecked Sendable {
                     ? "Post-processing failed on retry, using raw transcript"
                     : "Post-processing failed, using raw transcript"
             case .preservedExactWording:
-                return "Preserved exact wording, skipped post-processing"
+                return "Transcribed locally"
             case .preservedExactWordingTranslated:
                 return "Preserved exact wording, translated to output language"
             case .preservedExactWordingTranslationFailedFallback:
@@ -2460,82 +2451,17 @@ final class AppState: ObservableObject, @unchecked Sendable {
         _ rawTranscript: String,
         intent: SessionIntent,
         context: AppContext,
-        postProcessingService: PostProcessingService,
         customVocabulary: String,
         customSystemPrompt: String,
         outputLanguage: String = "",
         preserveExactWording: Bool
     ) async -> (finalTranscript: String, outcome: TranscriptProcessingOutcome, prompt: String) {
-        let trimmedRawTranscript = rawTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        guard !trimmedRawTranscript.isEmpty else {
-            return ("", .skippedEmptyRawTranscript, "")
-        }
-
-        if case .command(let invocation, let selectedText) = intent {
-            do {
-                let result = try await postProcessingService.commandTransform(
-                    selectedText: selectedText,
-                    voiceCommand: rawTranscript,
-                    context: context,
-                    customVocabulary: customVocabulary,
-                    outputLanguage: outputLanguage
-                )
-                return (result.transcript, .commandModeSucceeded(invocation: invocation), result.prompt)
-            } catch {
-                os_log(.error, log: recordingLog, "Edit mode failed: %{public}@", error.localizedDescription)
-                return (selectedText, .commandModeFailedFallback(invocation: invocation), "")
-            }
-        }
-
-        if let macro = findMatchingMacro(for: trimmedRawTranscript) {
-            os_log(.info, log: recordingLog, "Voice macro triggered: %{public}@", macro.command)
+        let transcript = rawTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !transcript.isEmpty else { return ("", .skippedEmptyRawTranscript, "") }
+        if let macro = findMatchingMacro(for: transcript) {
             return (macro.payload, .voiceMacro(command: macro.command), "")
         }
-
-        // Preserve-exact-wording mode. Two sub-cases so translation
-        // stays honored:
-        //
-        //   1. No Output Language set — skip the LLM entirely and
-        //      return the raw transcript verbatim.
-        //   2. Output Language IS set — route through a stripped-down
-        //      translate-only prompt. The user asked for another
-        //      language; silently dropping translation defeats their
-        //      settings. The translate-only path preserves filler,
-        //      informal wording, and profanity 1:1 while still hitting
-        //      the target language.
-        if preserveExactWording {
-            let targetLanguage = outputLanguage.trimmingCharacters(in: .whitespacesAndNewlines)
-            if targetLanguage.isEmpty {
-                return (trimmedRawTranscript, .preservedExactWording, "")
-            }
-            do {
-                let result = try await postProcessingService.translateVerbatim(
-                    transcript: trimmedRawTranscript,
-                    targetLanguage: targetLanguage
-                )
-                return (result.transcript, .preservedExactWordingTranslated, result.prompt)
-            } catch {
-                os_log(.error, log: recordingLog,
-                       "Verbatim translation failed: %{public}@",
-                       error.localizedDescription)
-                return (trimmedRawTranscript, .preservedExactWordingTranslationFailedFallback, "")
-            }
-        }
-
-        do {
-            let result = try await postProcessingService.postProcess(
-                transcript: trimmedRawTranscript,
-                context: context,
-                customVocabulary: customVocabulary,
-                customSystemPrompt: customSystemPrompt,
-                outputLanguage: outputLanguage
-            )
-            return (result.transcript, .postProcessingSucceeded, result.prompt)
-        } catch {
-            os_log(.error, log: recordingLog, "Post-processing failed: %{public}@", error.localizedDescription)
-            return (trimmedRawTranscript, .postProcessingFailedFallback, "")
-        }
+        return (transcript, .preservedExactWording, "")
     }
 
     /// Await the realtime WebSocket's final transcript. If it errors out (or
@@ -2621,13 +2547,6 @@ final class AppState: ObservableObject, @unchecked Sendable {
             self.statusText = "Transcribing..."
             self.debugStatusMessage = "Transcribing audio"
 
-        let postProcessingService = PostProcessingService(
-            apiKey: apiKey,
-            baseURL: apiBaseURL,
-            preferredModel: postProcessingModel,
-            preferredFallbackModel: postProcessingFallbackModel,
-            instructionExecutionGuardEnabled: instructionExecutionGuardEnabled
-        )
 
             let activeRealtime = self.realtimeService
             self.realtimeService = nil
@@ -2687,8 +2606,7 @@ final class AppState: ObservableObject, @unchecked Sendable {
                         parsedTranscript.transcript,
                         intent: sessionIntent,
                         context: appContext,
-                        postProcessingService: postProcessingService,
-                        customVocabulary: self.customVocabulary,
+                            customVocabulary: self.customVocabulary,
                         customSystemPrompt: self.customSystemPrompt,
                         outputLanguage: self.outputLanguage,
                         preserveExactWording: self.preserveExactWording
@@ -2883,7 +2801,7 @@ final class AppState: ObservableObject, @unchecked Sendable {
     }
 
     private func startRealtimeStreamingIfEnabled() {
-        guard realtimeStreamingEnabled else { return }
+        guard false else { return } // Realtime cloud streaming is disabled in LocalFlow.
         let trimmedBase = resolvedTranscriptionBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedBase.isEmpty else {
             os_log(.info, log: recordingLog, "realtime streaming requested but base URL is empty — skipping")
@@ -2945,19 +2863,17 @@ final class AppState: ObservableObject, @unchecked Sendable {
     }
 
     private func fallbackContextAtStop() -> AppContext {
-        let frontmostApp = NSWorkspace.shared.frontmostApplication
-        let windowTitle = focusedWindowTitle(for: frontmostApp)
-        return AppContext(
-            appName: frontmostApp?.localizedName,
-            bundleIdentifier: frontmostApp?.bundleIdentifier,
-            windowTitle: windowTitle,
+        AppContext(
+            appName: nil,
+            bundleIdentifier: nil,
+            windowTitle: nil,
             selectedText: nil,
-            currentActivity: "Could not refresh app context at stop time; using text-only post-processing.",
-            contextSystemPrompt: resolvedContextSystemPrompt(),
+            currentActivity: "",
+            contextSystemPrompt: nil,
             contextPrompt: nil,
             screenshotDataURL: nil,
             screenshotMimeType: nil,
-            screenshotError: "No app context captured before stop"
+            screenshotError: nil
         )
     }
 

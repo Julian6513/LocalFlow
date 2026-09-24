@@ -52,7 +52,7 @@ enum LLMCooldownManagerTests {
 
     private static func cooldown(headers: [String: String]) -> (seconds: TimeInterval, isDaily: Bool) {
         guard let response = HTTPURLResponse(
-            url: URL(string: "https://api.groq.com/openai/v1/chat/completions")!,
+            url: URL(string: "http://127.0.0.1/v1/chat/completions")!,
             statusCode: 429,
             httpVersion: nil,
             headerFields: headers

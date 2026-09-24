@@ -1,15 +1,16 @@
 import Foundation
 
 @main
-struct FreeFlowTests {
+struct LocalFlowTests {
     static func main() {
         AppContextServiceTests.run()
         ModelConfigurationTests.run()
+        LocalDictationModeTests.run()
         ShortcutCoreTests.run()
         SemanticVersionTests.run()
         LLMCooldownManagerTests.run()
         TranscriptionErrorPresentationCoreTests.run()
         TranscriptTextCoreTests.run()
-        print("FreeFlowTests passed")
+        print("LocalFlowTests passed")
     }
 }

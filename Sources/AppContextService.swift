@@ -27,7 +27,7 @@ struct AppContext {
 }
 
 final class AppContextService {
-    static let defaultContextModel = "qwen/qwen3.6-27b"
+    static let defaultContextModel = ""
     static let defaultContextPrompt = """
 You are a context synthesis assistant for a speech-to-text pipeline.
 Given app/window metadata and an optional screenshot, output exactly two sentences that describe what the user is doing right now and the likely writing intent in the current window.
@@ -47,12 +47,12 @@ Return only two sentences, no labels, no markdown, no extra commentary.
     private let screenshotMaxDimension: CGFloat
     private var contextRequestTimeoutSeconds: TimeInterval {
         let override = UserDefaults.standard.double(forKey: "context_request_timeout_seconds")
-        return override > 0 ? override : 20
+        return override > 0 ? override : 180
     }
 
     init(
         apiKey: String,
-        baseURL: String = "https://api.groq.com/openai/v1",
+        baseURL: String = "http://127.0.0.1",
         customContextPrompt: String = "",
         contextModel: String = AppContextService.defaultContextModel,
         screenshotMaxDimension: CGFloat = AppContextService.defaultScreenshotMaxDimension
