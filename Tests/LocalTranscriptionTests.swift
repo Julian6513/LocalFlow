@@ -27,6 +27,22 @@ enum LocalTranscriptionTests {
             LocalTranscriptionStage.transcribing.message(for: .heavy),
             "Heavy model ready — transcribing locally…"
         )
+        TestSupport.expectEqual(TranscriptionService.suggestedAudioContext(forDuration: 1), 768)
+        TestSupport.expectEqual(TranscriptionService.suggestedAudioContext(forDuration: 6), 768)
+        TestSupport.expectEqual(TranscriptionService.suggestedAudioContext(forDuration: 12), 1024)
+        TestSupport.expectEqual(TranscriptionService.suggestedAudioContext(forDuration: 16), nil)
+
+        let testURL = URL(fileURLWithPath: "/synthetic.wav")
+        let arguments = TranscriptionService.arguments(
+            modelURL: testURL,
+            fileURL: testURL,
+            outputPrefix: testURL,
+            language: "en",
+            audioContext: 768,
+            useGPU: true
+        )
+        TestSupport.expect(arguments.contains("-ac"), "Short Heavy dictation should set an audio context")
+        TestSupport.expect(arguments.contains("768"), "Audio context should match the short clip")
 
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("localflow-transcription-test-\(UUID().uuidString)")
@@ -38,13 +54,16 @@ enum LocalTranscriptionTests {
         #!/bin/sh
         output=''
         gpu='yes'
+        context=''
         while [ "$#" -gt 0 ]; do
             case "$1" in
                 -of) shift; output="$1" ;;
+                -ac) shift; context="$1" ;;
                 -ng) gpu='no' ;;
             esac
             shift
         done
+        if [ "$context" != '768' ]; then exit 4; fi
         if [ "$gpu" = 'yes' ]; then exit 6; fi
         printf 'synthetic transcript\\n' > "${output}.txt"
         """
@@ -53,7 +72,24 @@ enum LocalTranscriptionTests {
 
         let audio = directory.appendingPathComponent("synthetic.wav")
         let model = directory.appendingPathComponent("synthetic.bin")
-        try Data().write(to: audio)
+        var wave = Data("RIFF".utf8)
+        func appendLittleEndian<T: FixedWidthInteger>(_ value: T) {
+            var encoded = value.littleEndian
+            withUnsafeBytes(of: &encoded) { wave.append(contentsOf: $0) }
+        }
+        appendLittleEndian(UInt32(36 + 32_000))
+        wave.append(contentsOf: "WAVEfmt ".utf8)
+        appendLittleEndian(UInt32(16))
+        appendLittleEndian(UInt16(1))
+        appendLittleEndian(UInt16(1))
+        appendLittleEndian(UInt32(16_000))
+        appendLittleEndian(UInt32(32_000))
+        appendLittleEndian(UInt16(2))
+        appendLittleEndian(UInt16(16))
+        wave.append(contentsOf: "data".utf8)
+        appendLittleEndian(UInt32(32_000))
+        wave.append(contentsOf: repeatElement(UInt8(0), count: 32_000))
+        try wave.write(to: audio)
         try Data().write(to: model)
 
         let recorder = StageRecorder()

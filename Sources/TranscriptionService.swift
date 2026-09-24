@@ -1,3 +1,4 @@
+import AVFoundation
 import Foundation
 
 enum TranscriptionError: LocalizedError {
@@ -72,6 +73,7 @@ final class TranscriptionService {
             .appendingPathComponent("localflow-\(UUID().uuidString)")
         let outputURL = outputPrefix.appendingPathExtension("txt")
         defer { try? FileManager.default.removeItem(at: outputURL) }
+        let audioContext = mode == .heavy ? Self.audioContext(for: fileURL) : nil
 
         onStage?(.transcribing)
         var status = try await runWhisper(
@@ -79,6 +81,7 @@ final class TranscriptionService {
             modelURL: modelURL,
             fileURL: fileURL,
             outputPrefix: outputPrefix,
+            audioContext: audioContext,
             useGPU: true
         )
         if status != 0 {
@@ -90,6 +93,7 @@ final class TranscriptionService {
                 modelURL: modelURL,
                 fileURL: fileURL,
                 outputPrefix: outputPrefix,
+                audioContext: audioContext,
                 useGPU: false
             )
         }
@@ -107,6 +111,7 @@ final class TranscriptionService {
         modelURL: URL,
         fileURL: URL,
         outputPrefix: URL,
+        audioContext: Int?,
         useGPU: Bool
     ) async throws -> Int32 {
         let process = Process()
@@ -116,6 +121,7 @@ final class TranscriptionService {
             fileURL: fileURL,
             outputPrefix: outputPrefix,
             language: language,
+            audioContext: audioContext,
             useGPU: useGPU
         )
         process.standardOutput = FileHandle.nullDevice
@@ -144,6 +150,7 @@ final class TranscriptionService {
         fileURL: URL,
         outputPrefix: URL,
         language: String,
+        audioContext: Int? = nil,
         useGPU: Bool
     ) -> [String] {
         var arguments = [
@@ -153,8 +160,24 @@ final class TranscriptionService {
             "-otxt", "-of", outputPrefix.path,
             "-np"
         ]
+        if let audioContext { arguments += ["-ac", String(audioContext)] }
         if !useGPU { arguments.append("-ng") }
         return arguments
+    }
+
+    private static func audioContext(for fileURL: URL) -> Int? {
+        guard let audioFile = try? AVAudioFile(forReading: fileURL),
+              audioFile.processingFormat.sampleRate > 0 else { return nil }
+        let duration = Double(audioFile.length) / audioFile.processingFormat.sampleRate
+        return suggestedAudioContext(forDuration: duration)
+    }
+
+    // Whisper normally encodes a full 30-second window even for a short clip.
+    // Leave ample padding for the final words; smaller contexts can repeat text.
+    static func suggestedAudioContext(forDuration duration: TimeInterval) -> Int? {
+        guard duration.isFinite, duration > 0, duration <= 15 else { return nil }
+        let paddedFrames = duration * 50 + 384
+        return max(768, Int(ceil(paddedFrames / 64)) * 64)
     }
 
     private static func whisperExecutable() -> URL? {
