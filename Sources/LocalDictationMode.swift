@@ -33,9 +33,9 @@ enum LocalDictationMode: String, CaseIterable, Identifiable {
 
     var recommendedMac: String {
         switch self {
-        case .normal: "MacBook Air M5, 16 GB unified memory"
-        case .heavy: "MacBook Pro M5 Pro, 24 GB unified memory"
-        case .extraHeavy: "MacBook Pro M5 Max, 48 GB unified memory"
+        case .normal: "M1 MacBook Air, 8 GB unified memory"
+        case .heavy: "M1 MacBook Air, 8 GB unified memory"
+        case .extraHeavy: "M1 Pro MacBook Pro, 16 GB unified memory"
         }
     }
 
