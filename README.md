@@ -1,12 +1,17 @@
 # LocalFlow
 
+<p align="center">
+  <img src="Resources/AppIcon-Source.png" width="128" height="128" alt="LocalFlow icon">
+</p>
+
 LocalFlow is a local Mac dictation app based on [FreeFlow](https://github.com/zachlatta/freeflow). It records speech, transcribes it with a local Whisper model, and pastes the transcript into the active app. It has no cloud AI provider, API key setup, or second language model. Thanks to the FreeFlow contributors for the original app.
 
 ## Quick start
 
 1. Install [whisper.cpp](https://formulae.brew.sh/formula/whisper.cpp): `brew install whisper.cpp`. LocalFlow needs its `whisper-cli` executable.
 2. Build with `make` and open `build/LocalFlow Dev.app`.
-3. Choose a dictation mode during setup. LocalFlow downloads **only that mode's Whisper model**. Grant microphone and Accessibility permissions, then try dictation.
+3. Choose a dictation mode during setup. LocalFlow downloads **only that mode's Whisper model** and shows when it is ready.
+4. Grant microphone and Accessibility permissions. Hold `Fn` to talk, then release it to transcribe and paste into the active app.
 
 An internet connection is needed for the selected model download. Transcription then runs on this Mac. Choosing another mode downloads its model only when selected; previously downloaded models remain available for reuse. Downloads come from Hugging Face and are checked against the SHA-1 values published by whisper.cpp.
 
