@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 @main
-struct LocalFlowApp: App {
+struct PrivateFlowApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @AppStorage("show_menu_bar_icon") private var showMenuBarIcon = true
 
@@ -52,7 +52,7 @@ struct MenuBarLabel: View {
 
 enum BundledAppIcon {
     static let image: NSImage = {
-        guard let iconURL = Bundle.main.url(forResource: "LocalFlowIcon", withExtension: "icns"),
+        guard let iconURL = Bundle.main.url(forResource: "PrivateFlowIcon", withExtension: "icns"),
               let image = NSImage(contentsOf: iconURL) else {
             return NSApp.applicationIconImage
         }

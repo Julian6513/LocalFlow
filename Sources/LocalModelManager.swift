@@ -79,7 +79,7 @@ actor LocalModelManager {
             appropriateFor: nil,
             create: true
         )
-        return support.appendingPathComponent("LocalFlow", isDirectory: true)
+        return support.appendingPathComponent(AppName.modelStorageName, isDirectory: true)
             .appendingPathComponent("Models", isDirectory: true)
             .appendingPathComponent(mode.whisperFileName)
     }

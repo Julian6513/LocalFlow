@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>LocalFlow</string>
+    <string>PrivateFlow</string>
     <key>CFBundleDisplayName</key>
-    <string>LocalFlow</string>
+    <string>PrivateFlow</string>
     <key>CFBundleIdentifier</key>
-    <string>com.zachlatta.freeflow</string>
+    <string>com.julian6513.localflow</string>
     <key>CFBundleVersion</key>
     <string>0.3.0</string>
     <key>CFBundleShortVersionString</key>
@@ -15,18 +15,18 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleExecutable</key>
-    <string>LocalFlow</string>
+    <string>PrivateFlow</string>
     <key>CFBundleIconFile</key>
-    <string>LocalFlowIcon</string>
+    <string>PrivateFlowIcon</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
     <key>LSUIElement</key>
     <true/>
     <key>NSMicrophoneUsageDescription</key>
-    <string>LocalFlow needs microphone access to transcribe your speech.</string>
+    <string>PrivateFlow needs microphone access to transcribe your speech.</string>
     <key>NSSpeechRecognitionUsageDescription</key>
-    <string>LocalFlow needs speech recognition to convert your voice to text.</string>
+    <string>PrivateFlow needs speech recognition to convert your voice to text.</string>
     <key>NSAccessibilityUsageDescription</key>
-    <string>LocalFlow needs accessibility access to detect the text cursor position and paste transcribed text.</string>
+    <string>PrivateFlow needs accessibility access to detect the text cursor position and paste transcribed text.</string>
 </dict>
 </plist>

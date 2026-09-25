@@ -1,5 +1,5 @@
 name: Bug report
-description: Report reproducible incorrect behavior in LocalFlow
+description: Report reproducible incorrect behavior in PrivateFlow
 title: "[Bug]: "
 labels:
   - bug
@@ -41,7 +41,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: LocalFlow version and build
+      label: PrivateFlow version and build
       description: Use the version and build shown by the app. Say "unknown" if unavailable.
     validations:
       required: true

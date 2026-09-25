@@ -1,16 +1,16 @@
-# LocalFlow
+# PrivateFlow
 
 <p align="center">
-  <img src="Resources/AppIcon-Source.png" width="128" height="128" alt="LocalFlow icon">
+  <img src="Resources/AppIcon-Source.png" width="128" height="128" alt="PrivateFlow icon">
 </p>
 
-LocalFlow is a local Mac dictation app based on [FreeFlow](https://github.com/zachlatta/freeflow). It records speech, transcribes it with a local Whisper model, and pastes the transcript into the active app. It has no cloud AI provider, API key setup, or second language model. Thanks to the FreeFlow contributors for the original app.
+PrivateFlow is a local Mac dictation app based on [FreeFlow](https://github.com/zachlatta/freeflow). It records speech, transcribes it with a local Whisper model, and pastes the transcript into the active app. It has no cloud AI provider, API key setup, or second language model. Thanks to the FreeFlow contributors for the original app.
 
 ## Quick start
 
-1. Install [whisper.cpp](https://formulae.brew.sh/formula/whisper.cpp): `brew install whisper.cpp`. LocalFlow needs its `whisper-cli` executable.
-2. Build with `make` and open `build/LocalFlow Dev.app`.
-3. Choose a dictation mode during setup. LocalFlow downloads **only that mode's Whisper model** and shows when it is ready.
+1. For a source build, install [whisper.cpp](https://formulae.brew.sh/formula/whisper.cpp) with `brew install whisper.cpp`, or set `WHISPER_CLI_SOURCE` to an existing `whisper-cli`. The build bundles that executable into the app. Release builds compile a universal copy from a pinned whisper.cpp commit.
+2. Build with `make` and open `build/PrivateFlow Dev.app`. An installed PrivateFlow app already includes whisper.cpp.
+3. Choose a dictation mode during setup. PrivateFlow downloads **only that mode's Whisper model** and shows when it is ready.
 4. Grant microphone and Accessibility permissions. Hold `Fn` to talk, then release it to transcribe and paste into the active app.
 
 An internet connection is needed for the selected model download. Transcription then runs on this Mac. Choosing another mode downloads its model only when selected; previously downloaded models remain available for reuse. Downloads come from Hugging Face and are checked against the SHA-1 values published by whisper.cpp.
@@ -29,7 +29,7 @@ These are example Macs for comfortable use, not minimum requirements or measured
 
 Audio is passed to a local `whisper-cli` process. There is no cloud AI API path for dictation. Model downloads contact Hugging Face; the app may also contact GitHub for repository and update information. Run Log can keep recent audio and transcripts on this Mac according to its settings.
 
-Models are stored in `~/Library/Application Support/LocalFlow/Models`. If a download fails, use **Retry** in Local Models settings. macOS may ask for microphone and Accessibility access again when a locally signed app is replaced.
+New installs store models in `~/Library/Application Support/PrivateFlow/Models`. Existing installs reuse their previous models and run history. If a download fails, use **Retry** in Local Models settings. macOS may ask for microphone and Accessibility access again when a locally signed app is replaced.
 
 ## License
 

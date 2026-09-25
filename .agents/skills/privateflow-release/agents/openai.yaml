@@ -1,0 +1,4 @@
+interface:
+  display_name: "PrivateFlow Release"
+  short_description: "Prepare and publish PrivateFlow semver releases."
+  default_prompt: "Prepare a new PrivateFlow release."

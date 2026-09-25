@@ -49,7 +49,7 @@ enum LocalTranscriptionTests {
         TestSupport.expect(!arguments.contains("-bs"), "Heavy should keep its default beam search")
 
         let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("localflow-transcription-test-\(UUID().uuidString)")
+            .appendingPathComponent("privateflow-transcription-test-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
 

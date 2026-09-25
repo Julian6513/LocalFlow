@@ -1,8 +1,9 @@
 import Foundation
 
 @main
-struct LocalFlowTests {
+struct PrivateFlowTests {
     static func main() async throws {
+        try AppNameTests.run()
         AppContextServiceTests.run()
         ModelConfigurationTests.run()
         LocalDictationModeTests.run()
@@ -12,6 +13,6 @@ struct LocalFlowTests {
         TranscriptionErrorPresentationCoreTests.run()
         try await LocalTranscriptionTests.run()
         TranscriptTextCoreTests.run()
-        print("LocalFlowTests passed")
+        print("PrivateFlowTests passed")
     }
 }

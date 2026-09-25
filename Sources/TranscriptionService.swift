@@ -9,7 +9,7 @@ enum TranscriptionError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .missingRuntime:
-            "Install whisper.cpp (brew install whisper.cpp) before using LocalFlow."
+            "The local speech engine is missing from PrivateFlow. Reinstall the app to restore whisper.cpp."
         case .inferenceFailed:
             "Local Whisper transcription failed. Check that whisper-cli can run on this Mac."
         case .emptyResponse:
@@ -70,7 +70,7 @@ final class TranscriptionService {
         onStage: (@Sendable (LocalTranscriptionStage) -> Void)? = nil
     ) async throws -> String {
         let outputPrefix = FileManager.default.temporaryDirectory
-            .appendingPathComponent("localflow-\(UUID().uuidString)")
+            .appendingPathComponent("privateflow-\(UUID().uuidString)")
         let outputURL = outputPrefix.appendingPathExtension("txt")
         defer { try? FileManager.default.removeItem(at: outputURL) }
         let audioContext = mode == .extraHeavy ? nil : Self.audioContext(for: fileURL)

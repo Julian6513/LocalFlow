@@ -2,7 +2,7 @@ import Foundation
 import os.log
 
 private let transcriptTextLog = OSLog(
-    subsystem: "com.zachlatta.freeflow",
+    subsystem: "com.julian6513.privateflow",
     category: "Transcription"
 )
 
