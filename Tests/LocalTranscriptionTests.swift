@@ -31,6 +31,9 @@ enum LocalTranscriptionTests {
         TestSupport.expectEqual(TranscriptionService.suggestedAudioContext(forDuration: 6), 768)
         TestSupport.expectEqual(TranscriptionService.suggestedAudioContext(forDuration: 12), 1024)
         TestSupport.expectEqual(TranscriptionService.suggestedAudioContext(forDuration: 16), nil)
+        TestSupport.expectEqual(TranscriptionService.beamSize(for: .normal), 1)
+        TestSupport.expectEqual(TranscriptionService.beamSize(for: .heavy), nil)
+        TestSupport.expectEqual(TranscriptionService.beamSize(for: .extraHeavy), nil)
 
         let testURL = URL(fileURLWithPath: "/synthetic.wav")
         let arguments = TranscriptionService.arguments(
@@ -43,6 +46,7 @@ enum LocalTranscriptionTests {
         )
         TestSupport.expect(arguments.contains("-ac"), "Short Heavy dictation should set an audio context")
         TestSupport.expect(arguments.contains("768"), "Audio context should match the short clip")
+        TestSupport.expect(!arguments.contains("-bs"), "Heavy should keep its default beam search")
 
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("localflow-transcription-test-\(UUID().uuidString)")
@@ -55,15 +59,26 @@ enum LocalTranscriptionTests {
         output=''
         gpu='yes'
         context=''
+        beam=''
+        model=''
         while [ "$#" -gt 0 ]; do
             case "$1" in
                 -of) shift; output="$1" ;;
+                -m) shift; model="$1" ;;
                 -ac) shift; context="$1" ;;
+                -bs) shift; beam="$1" ;;
                 -ng) gpu='no' ;;
             esac
             shift
         done
         if [ "$context" != '768' ]; then exit 4; fi
+        case "$model" in
+            *synthetic-normal.bin)
+                if [ "$beam" != '1' ]; then exit 5; fi
+                printf 'synthetic transcript\\n' > "${output}.txt"
+                exit 0 ;;
+        esac
+        if [ -n "$beam" ]; then exit 7; fi
         if [ "$gpu" = 'yes' ]; then exit 6; fi
         printf 'synthetic transcript\\n' > "${output}.txt"
         """
@@ -102,5 +117,18 @@ enum LocalTranscriptionTests {
         )
         TestSupport.expectEqual(transcript, "synthetic transcript")
         TestSupport.expectEqual(recorder.snapshot(), [.transcribing, .retryingWithoutGPU])
+
+        let normalModel = directory.appendingPathComponent("synthetic-normal.bin")
+        try Data().write(to: normalModel)
+        let normalRecorder = StageRecorder()
+        let normalService = try TranscriptionService(mode: .normal, language: "en")
+        let normalTranscript = try await normalService.transcribe(
+            fileURL: audio,
+            modelURL: normalModel,
+            executable: executable,
+            onStage: { normalRecorder.append($0) }
+        )
+        TestSupport.expectEqual(normalTranscript, "synthetic transcript")
+        TestSupport.expectEqual(normalRecorder.snapshot(), [.transcribing])
     }
 }

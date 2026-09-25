@@ -1,5 +1,5 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Questions and support
+  - name: Upstream FreeFlow discussions
     url: https://github.com/zachlatta/freeflow/discussions
-    about: Ask usage questions or get help from the community.
+    about: Ask about the original FreeFlow project and its features.

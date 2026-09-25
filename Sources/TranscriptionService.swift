@@ -73,7 +73,8 @@ final class TranscriptionService {
             .appendingPathComponent("localflow-\(UUID().uuidString)")
         let outputURL = outputPrefix.appendingPathExtension("txt")
         defer { try? FileManager.default.removeItem(at: outputURL) }
-        let audioContext = mode == .heavy ? Self.audioContext(for: fileURL) : nil
+        let audioContext = mode == .extraHeavy ? nil : Self.audioContext(for: fileURL)
+        let beamSize = Self.beamSize(for: mode)
 
         onStage?(.transcribing)
         var status = try await runWhisper(
@@ -82,6 +83,7 @@ final class TranscriptionService {
             fileURL: fileURL,
             outputPrefix: outputPrefix,
             audioContext: audioContext,
+            beamSize: beamSize,
             useGPU: true
         )
         if status != 0 {
@@ -94,6 +96,7 @@ final class TranscriptionService {
                 fileURL: fileURL,
                 outputPrefix: outputPrefix,
                 audioContext: audioContext,
+                beamSize: beamSize,
                 useGPU: false
             )
         }
@@ -112,6 +115,7 @@ final class TranscriptionService {
         fileURL: URL,
         outputPrefix: URL,
         audioContext: Int?,
+        beamSize: Int?,
         useGPU: Bool
     ) async throws -> Int32 {
         let process = Process()
@@ -122,6 +126,7 @@ final class TranscriptionService {
             outputPrefix: outputPrefix,
             language: language,
             audioContext: audioContext,
+            beamSize: beamSize,
             useGPU: useGPU
         )
         process.standardOutput = FileHandle.nullDevice
@@ -151,6 +156,7 @@ final class TranscriptionService {
         outputPrefix: URL,
         language: String,
         audioContext: Int? = nil,
+        beamSize: Int? = nil,
         useGPU: Bool
     ) -> [String] {
         var arguments = [
@@ -161,8 +167,15 @@ final class TranscriptionService {
             "-np"
         ]
         if let audioContext { arguments += ["-ac", String(audioContext)] }
+        if let beamSize { arguments += ["-bs", String(beamSize)] }
         if !useGPU { arguments.append("-ng") }
         return arguments
+    }
+
+    // Normal favors prompt dictation. Heavy and Extra Heavy retain Whisper's
+    // default beam search for users who chose those modes for accuracy.
+    static func beamSize(for mode: LocalDictationMode) -> Int? {
+        mode == .normal ? 1 : nil
     }
 
     private static func audioContext(for fileURL: URL) -> Int? {
@@ -173,7 +186,7 @@ final class TranscriptionService {
     }
 
     // Whisper normally encodes a full 30-second window even for a short clip.
-    // Leave ample padding for the final words; smaller contexts can repeat text.
+    // Leave ample padding for the final words; short contexts can repeat text.
     static func suggestedAudioContext(forDuration duration: TimeInterval) -> Int? {
         guard duration.isFinite, duration > 0, duration <= 15 else { return nil }
         let paddedFrames = duration * 50 + 384

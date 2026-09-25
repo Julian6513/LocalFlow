@@ -1,6 +1,6 @@
 # LocalFlow
 
-LocalFlow is a private Mac dictation app based on [FreeFlow](https://github.com/zachlatta/freeflow). It records speech, transcribes it with a local Whisper model, and pastes the transcript into the active app. It has no cloud AI provider, API key setup, or second language model. Thanks to the FreeFlow contributors for the original app.
+LocalFlow is a local Mac dictation app based on [FreeFlow](https://github.com/zachlatta/freeflow). It records speech, transcribes it with a local Whisper model, and pastes the transcript into the active app. It has no cloud AI provider, API key setup, or second language model. Thanks to the FreeFlow contributors for the original app.
 
 ## Quick start
 
@@ -24,7 +24,7 @@ These are example Macs for comfortable use, not minimum requirements or measured
 
 Audio is passed to a local `whisper-cli` process. There is no cloud AI API path for dictation. Model downloads contact Hugging Face; the app may also contact GitHub for repository and update information. Run Log can keep recent audio and transcripts on this Mac according to its settings.
 
-Models are stored in `~/Library/Application Support/LocalFlow/Models`. If a download fails, use **Retry** in Local Models settings. The bundle identifier remains the original one so existing Mac permissions and settings are preserved.
+Models are stored in `~/Library/Application Support/LocalFlow/Models`. If a download fails, use **Retry** in Local Models settings. macOS may ask for microphone and Accessibility access again when a locally signed app is replaced.
 
 ## License
 
