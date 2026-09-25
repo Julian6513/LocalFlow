@@ -1,15 +1,17 @@
 import Foundation
 
 @main
-struct FreeFlowTests {
-    static func main() {
+struct LocalFlowTests {
+    static func main() async throws {
         AppContextServiceTests.run()
         ModelConfigurationTests.run()
+        LocalDictationModeTests.run()
         ShortcutCoreTests.run()
         SemanticVersionTests.run()
         LLMCooldownManagerTests.run()
         TranscriptionErrorPresentationCoreTests.run()
+        try await LocalTranscriptionTests.run()
         TranscriptTextCoreTests.run()
-        print("FreeFlowTests passed")
+        print("LocalFlowTests passed")
     }
 }

@@ -6,6 +6,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var settingsWindow: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.applicationIconImage = BundledAppIcon.image
         NetworkMonitor.shared.start()
 
         NotificationCenter.default.addObserver(

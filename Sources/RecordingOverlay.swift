@@ -11,6 +11,7 @@ final class RecordingOverlayState: ObservableObject {
     @Published var updateVersion: String = ""
     @Published var errorMessage: String?
     @Published var toastID: UUID?
+    @Published var processingMessage = "Preparing audio…"
 }
 
 enum OverlayPhase {
@@ -75,7 +76,6 @@ private func makeNotchContent<V: View>(
 final class RecordingOverlayManager {
     private var overlayWindow: NSPanel?
     private let overlayState = RecordingOverlayState()
-    private var lockedOverlayWidth: CGFloat?
 
     var onStopButtonPressed: (() -> Void)?
     var onUpdateOverlayPressed: (() -> Void)?
@@ -130,7 +130,6 @@ final class RecordingOverlayManager {
 
     func showInitializing(mode: RecordingTriggerMode = .hold, isCommandMode: Bool = false) {
         DispatchQueue.main.async {
-            self.lockedOverlayWidth = nil
             self.overlayState.recordingTriggerMode = mode
             self.overlayState.isCommandMode = isCommandMode
             self.overlayState.phase = .initializing
@@ -141,7 +140,6 @@ final class RecordingOverlayManager {
 
     func showRecording(mode: RecordingTriggerMode = .hold, isCommandMode: Bool = false) {
         DispatchQueue.main.async {
-            self.lockedOverlayWidth = nil
             self.overlayState.recordingTriggerMode = mode
             self.overlayState.isCommandMode = isCommandMode
             self.overlayState.phase = .recording
@@ -152,7 +150,6 @@ final class RecordingOverlayManager {
 
     func transitionToRecording(mode: RecordingTriggerMode = .hold, isCommandMode: Bool = false) {
         DispatchQueue.main.async {
-            self.lockedOverlayWidth = nil
             self.overlayState.recordingTriggerMode = mode
             self.overlayState.isCommandMode = isCommandMode
             self.overlayState.phase = .recording
@@ -176,6 +173,14 @@ final class RecordingOverlayManager {
     func showTranscribing() {
         DispatchQueue.main.async {
             self.setTranscribingPhase()
+        }
+    }
+
+    func updateTranscribingStatus(_ message: String) {
+        DispatchQueue.main.async {
+            guard self.overlayState.phase == .transcribing else { return }
+            self.overlayState.processingMessage = message
+            self.updateOverlayLayout(animated: true)
         }
     }
 
@@ -206,7 +211,6 @@ final class RecordingOverlayManager {
             let toastID = UUID()
             self.overlayState.errorMessage = truncated
             self.overlayState.toastID = toastID
-            self.lockedOverlayWidth = nil
             self.overlayState.phase = .feedback
             self.showOverlayPanel(animatedResize: true)
             DispatchQueue.main.asyncAfter(deadline: .now() + 6.0) { [weak self] in
@@ -225,7 +229,6 @@ final class RecordingOverlayManager {
 
     func showUpdateAvailable(version: String) {
         DispatchQueue.main.async {
-            self.lockedOverlayWidth = nil
             self.overlayState.isCommandMode = false
             self.overlayState.updateVersion = version
             self.overlayState.phase = .updateAvailable
@@ -281,7 +284,7 @@ final class RecordingOverlayManager {
     }
 
     private func setTranscribingPhase() {
-        lockedOverlayWidth = overlayWindow?.frame.width ?? overlayWidth
+        overlayState.processingMessage = "Preparing audio…"
         overlayState.phase = .transcribing
         showOverlayPanel(animatedResize: true)
     }
@@ -347,8 +350,10 @@ final class RecordingOverlayManager {
         let useCompact = (UserDefaults.standard.object(forKey: "use_compact_overlay") as? Bool) ?? true
         guard useCompact else { return false }
         switch overlayState.phase {
-        case .recording, .initializing, .transcribing:
+        case .recording, .initializing:
             return true
+        case .transcribing:
+            return false
         case .feedback:
             return overlayState.errorMessage?.isEmpty ?? true
         case .updateAvailable:
@@ -384,6 +389,7 @@ final class RecordingOverlayManager {
         let useCompact = (UserDefaults.standard.object(forKey: "use_compact_overlay") as? Bool) ?? true
         let forceDropDownPill = overlayState.phase == .feedback
             && !(overlayState.errorMessage?.isEmpty ?? true)
+            || overlayState.phase == .transcribing
         // Compact mode: overlay sits flush with the menu bar on every display.
         // notchOverlap equals the menu-bar height on non-notched screens too,
         // so zero protrusion is universal — not notch-only. The legacy
@@ -399,8 +405,10 @@ final class RecordingOverlayManager {
     }
 
     private var overlayWidth: CGFloat {
-        if let lockedOverlayWidth, overlayState.phase == .transcribing {
-            return lockedOverlayWidth
+        if overlayState.phase == .transcribing {
+            let estimated = CGFloat(overlayState.processingMessage.count) * 6.8 + 60
+            let statusWidth = min(430, max(210, estimated))
+            return screenHasNotch ? max(notchWidth, statusWidth) : statusWidth
         }
 
         if overlayState.phase == .feedback {
@@ -445,13 +453,11 @@ final class RecordingOverlayManager {
     }
 
     private func showFeedbackPanel() {
-        lockedOverlayWidth = nil
         overlayState.phase = .feedback
         showOverlayPanel(animatedResize: true)
     }
 
     private func dismissAll() {
-        lockedOverlayWidth = nil
         overlayState.isCommandMode = false
         overlayState.updateVersion = ""
         if let panel = overlayWindow {
@@ -957,6 +963,14 @@ struct RecordingOverlayView: View {
                 FailureIndicatorView()
             } else if state.phase == .updateAvailable {
                 UpdateAvailableOverlayView(onPress: onUpdateOverlayPressed)
+            } else if state.phase == .transcribing {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small).tint(.white)
+                    Text(state.processingMessage)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                }
             } else {
                 ZStack {
                     Group {

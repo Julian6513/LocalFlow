@@ -110,6 +110,24 @@ struct MenuBarView: View {
                     .padding(.vertical, 6)
             }
 
+            if !appState.isRecording && !appState.isTranscribing {
+                if let stage = appState.localModelPreparationStage {
+                    Label(stage.message(for: appState.dictationMode),
+                          systemImage: stage == .ready ? "checkmark.circle.fill" : "arrow.down.circle")
+                        .foregroundStyle(stage == .ready ? Color.green : Color.secondary)
+                        .font(.caption)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 6)
+                } else if let error = appState.localModelPreparationError {
+                    Label(error, systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                        .font(.caption)
+                        .lineLimit(2)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 6)
+                }
+            }
+
             Divider()
 
             // Manual toggle
