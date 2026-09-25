@@ -37,8 +37,9 @@ struct MenuBarLabel: View {
                 Image(nsImage: StampedMenuBarIcon.templateImage)
                     .renderingMode(.template)
             } else if !appState.isRecording && !appState.isTranscribing {
-                Image(nsImage: MenuBarBrandIcon.image)
+                Image(nsImage: BundledAppIcon.image)
                     .resizable()
+                    .renderingMode(.original)
                     .interpolation(.high)
                     .frame(width: 18, height: 18)
             } else {
@@ -49,9 +50,9 @@ struct MenuBarLabel: View {
     }
 }
 
-enum MenuBarBrandIcon {
+enum BundledAppIcon {
     static let image: NSImage = {
-        guard let iconURL = Bundle.main.url(forResource: "AppIcon", withExtension: "icns"),
+        guard let iconURL = Bundle.main.url(forResource: "LocalFlowIcon", withExtension: "icns"),
               let image = NSImage(contentsOf: iconURL) else {
             return NSApp.applicationIconImage
         }
