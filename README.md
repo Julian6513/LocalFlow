@@ -8,8 +8,8 @@ PrivateFlow is a local Mac dictation app based on [FreeFlow](https://github.com/
 
 ## Quick start
 
-1. Install [whisper.cpp](https://formulae.brew.sh/formula/whisper.cpp): `brew install whisper.cpp`. PrivateFlow needs its `whisper-cli` executable.
-2. Build with `make` and open `build/PrivateFlow Dev.app`.
+1. For a source build, install [whisper.cpp](https://formulae.brew.sh/formula/whisper.cpp) with `brew install whisper.cpp`, or set `WHISPER_CLI_SOURCE` to an existing `whisper-cli`. The build bundles that executable into the app. Release builds compile a universal copy from a pinned whisper.cpp commit.
+2. Build with `make` and open `build/PrivateFlow Dev.app`. An installed PrivateFlow app already includes whisper.cpp.
 3. Choose a dictation mode during setup. PrivateFlow downloads **only that mode's Whisper model** and shows when it is ready.
 4. Grant microphone and Accessibility permissions. Hold `Fn` to talk, then release it to transcribe and paste into the active app.
 

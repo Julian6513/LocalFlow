@@ -32,6 +32,8 @@ SHELL_SCRIPTS = $(shell find .github/scripts .agents/skills -name '*.sh' -type f
 YAML_FILES = $(shell find .github -type f \( -name '*.yml' -o -name '*.yaml' \) | LC_ALL=C sort)
 RESOURCES = $(CONTENTS)/Resources
 ARCH ?= $(shell uname -m)
+WHISPER_CLI_SOURCE ?= $(firstword $(wildcard /opt/homebrew/bin/whisper-cli /usr/local/bin/whisper-cli $(HOME)/Applications/PrivateFlow.app/Contents/Resources/whisper-cli))
+WHISPER_CLI_BUNDLE = $(RESOURCES)/whisper-cli
 
 # Pick the icon source based on which bundle we are building. Dev builds get
 # a distinct hammer-on-waveform icon so a developer's dock shows at a glance
@@ -48,7 +50,15 @@ endif
 
 all: $(APP_EXECUTABLE_TARGET)
 
-$(APP_EXECUTABLE_TARGET): $(SOURCES) Info.plist $(ICON_ICNS)
+$(WHISPER_CLI_BUNDLE): $(WHISPER_CLI_SOURCE)
+	@test -n "$(WHISPER_CLI_SOURCE)" && test -x "$(WHISPER_CLI_SOURCE)" || { echo "whisper-cli is required. Install whisper.cpp or set WHISPER_CLI_SOURCE." >&2; exit 1; }
+	@lipo "$(WHISPER_CLI_SOURCE)" -verify_arch $(if $(filter universal,$(ARCH)),arm64 x86_64,$(ARCH)) || { echo "whisper-cli does not support the requested app architecture." >&2; exit 1; }
+	@mkdir -p "$(RESOURCES)"
+	@cp "$(WHISPER_CLI_SOURCE)" "$@"
+	@chmod 755 "$@"
+	@codesign --force --options runtime --sign "$(CODESIGN_IDENTITY)" "$@"
+
+$(APP_EXECUTABLE_TARGET): $(SOURCES) Info.plist $(ICON_ICNS) $(WHISPER_CLI_BUNDLE)
 	@mkdir -p "$(MACOS_DIR)" "$(RESOURCES)"
 ifeq ($(ARCH),universal)
 	swiftc \

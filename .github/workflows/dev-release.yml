@@ -44,7 +44,12 @@ jobs:
           if brew tap | grep -qx 'aws/tap'; then
             brew untap aws/tap
           fi
-          brew install create-dmg fileicon
+          brew install create-dmg fileicon cmake
+
+      - name: Build local dictation engine
+        run: |
+          .github/scripts/build-whisper-cli.sh "$RUNNER_TEMP/whisper-cli"
+          echo "WHISPER_CLI_SOURCE=$RUNNER_TEMP/whisper-cli" >> "$GITHUB_ENV"
 
       # --- Code signing setup ---
       # Required GitHub secrets:

@@ -9,7 +9,7 @@ enum TranscriptionError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .missingRuntime:
-            "Install whisper.cpp (brew install whisper.cpp) before using PrivateFlow."
+            "The local speech engine is missing from PrivateFlow. Reinstall the app to restore whisper.cpp."
         case .inferenceFailed:
             "Local Whisper transcription failed. Check that whisper-cli can run on this Mac."
         case .emptyResponse:

@@ -305,7 +305,7 @@ struct SetupView: View {
             Text("Choose a Local Dictation Mode")
                 .font(.title)
                 .fontWeight(.bold)
-            Text("PrivateFlow downloads only the speech model for the mode you choose. Install whisper.cpp before dictating.")
+            Text("PrivateFlow includes whisper.cpp and downloads only the speech model for the mode you choose.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
             LocalModeSettingsView()
