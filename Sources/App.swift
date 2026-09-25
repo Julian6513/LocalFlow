@@ -36,12 +36,28 @@ struct MenuBarLabel: View {
             if AppBuild.isDevBundle && !appState.isRecording && !appState.isTranscribing {
                 Image(nsImage: StampedMenuBarIcon.templateImage)
                     .renderingMode(.template)
+            } else if !appState.isRecording && !appState.isTranscribing {
+                Image(nsImage: MenuBarBrandIcon.image)
+                    .resizable()
+                    .interpolation(.high)
+                    .frame(width: 18, height: 18)
             } else {
                 Image(systemName: iconName)
             }
         }
         .animation(.easeInOut(duration: 0.2), value: notificationManager.showCheckmark)
     }
+}
+
+enum MenuBarBrandIcon {
+    static let image: NSImage = {
+        guard let iconURL = Bundle.main.url(forResource: "AppIcon", withExtension: "icns"),
+              let image = NSImage(contentsOf: iconURL) else {
+            return NSApp.applicationIconImage
+        }
+        image.isTemplate = false
+        return image
+    }()
 }
 
 enum StampedMenuBarIcon {
