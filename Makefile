@@ -1,5 +1,5 @@
-APP_NAME ?= LocalFlow Dev
-BUNDLE_ID ?= com.zachlatta.freeflow.dev
+APP_NAME ?= PrivateFlow Dev
+BUNDLE_ID ?= com.julian6513.localflow.dev
 BUILD_DIR = build
 APP_BUNDLE = $(BUILD_DIR)/$(APP_NAME).app
 CODESIGN_IDENTITY ?= -
@@ -11,7 +11,7 @@ APP_EXECUTABLE = $(MACOS_DIR)/$(APP_NAME)
 APP_EXECUTABLE_TARGET := $(subst $(space),\ ,$(APP_EXECUTABLE))
 
 SOURCES = $(shell find Sources -name '*.swift' -type f | LC_ALL=C sort)
-TEST_RUNNER = $(BUILD_DIR)/LocalFlowTests
+TEST_RUNNER = $(BUILD_DIR)/PrivateFlowTests
 TEST_PRODUCTION_SOURCES = \
 	Sources/AppContextService.swift \
 	Sources/AppName.swift \
@@ -35,8 +35,8 @@ ARCH ?= $(shell uname -m)
 
 # Pick the icon source based on which bundle we are building. Dev builds get
 # a distinct hammer-on-waveform icon so a developer's dock shows at a glance
-# which LocalFlow they are running when both are installed side by side.
-ifeq ($(APP_NAME),LocalFlow Dev)
+# which PrivateFlow they are running when both are installed side by side.
+ifeq ($(APP_NAME),PrivateFlow Dev)
 ICON_SOURCE = Resources/AppIcon-Dev-Source.png
 ICON_ICNS = Resources/AppIcon-Dev.icns
 else
@@ -80,11 +80,11 @@ endif
 	@plutil -replace CFBundleDisplayName -string "$(APP_NAME)" "$(CONTENTS)/Info.plist"
 	@plutil -replace CFBundleExecutable -string "$(APP_NAME)" "$(CONTENTS)/Info.plist"
 	@plutil -replace CFBundleIdentifier -string "$(BUNDLE_ID)" "$(CONTENTS)/Info.plist"
-	@cp $(ICON_ICNS) "$(RESOURCES)/LocalFlowIcon.icns"
+	@cp $(ICON_ICNS) "$(RESOURCES)/PrivateFlowIcon.icns"
 	@plutil -replace NSMicrophoneUsageDescription -string "$(APP_NAME) needs microphone access to transcribe your speech." "$(CONTENTS)/Info.plist"
 	@plutil -replace NSSpeechRecognitionUsageDescription -string "$(APP_NAME) needs speech recognition to convert your voice to text." "$(CONTENTS)/Info.plist"
 	@plutil -replace NSAccessibilityUsageDescription -string "$(APP_NAME) needs accessibility access to detect the text cursor position and paste transcribed text." "$(CONTENTS)/Info.plist"
-	@codesign --force --options runtime --sign "$(CODESIGN_IDENTITY)" --entitlements FreeFlow.entitlements "$(APP_BUNDLE)"
+	@codesign --force --options runtime --sign "$(CODESIGN_IDENTITY)" --entitlements PrivateFlow.entitlements "$(APP_BUNDLE)"
 	@echo "Built $(APP_BUNDLE)"
 
 check: typecheck test validate
@@ -111,7 +111,7 @@ test:
 	@$(TEST_RUNNER)
 
 validate:
-	plutil -lint Info.plist FreeFlow.entitlements
+	plutil -lint Info.plist PrivateFlow.entitlements
 	@set -e; for script in $(SHELL_SCRIPTS); do bash -n "$$script"; done
 	@ruby -e 'require "yaml"; ARGV.each { |file| YAML.load_file(file) }' $(YAML_FILES)
 

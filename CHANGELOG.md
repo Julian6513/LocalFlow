@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to FreeFlow are documented here.
+All notable changes to PrivateFlow are documented here.
 
 This project uses semantic versioning for public releases. Use `MAJOR.MINOR.PATCH`, where:
 

@@ -2,11 +2,11 @@ import Foundation
 import Security
 
 enum AppSettingsStorage {
-    private static let bundleID = Bundle.main.bundleIdentifier ?? "com.zachlatta.freeflow"
+    private static let bundleID = Bundle.main.bundleIdentifier ?? "com.julian6513.localflow"
 
     private static var storageDirectory: URL {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let appName = AppName.displayName
+        let appName = AppName.storageName
         let dir = appSupport.appendingPathComponent(appName, isDirectory: true)
         if !FileManager.default.fileExists(atPath: dir.path) {
             try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)

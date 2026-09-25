@@ -1,7 +1,7 @@
-# LocalFlow
+# PrivateFlow
 
-LocalFlow is a macOS dictation app based on FreeFlow. Source: https://github.com/Julian6513/LocalFlow
+PrivateFlow is a macOS dictation app based on FreeFlow. Source: https://github.com/Julian6513/PrivateFlow
 
-LocalFlow transcribes with a local whisper.cpp CLI process. Its three modes are Normal (Whisper small), Heavy (Whisper large-v3-turbo), and Extra Heavy (Whisper large-v3). It downloads only the speech model for the selected mode. It has no cloud AI provider, API key setup, or second language model.
+PrivateFlow transcribes with a local whisper.cpp CLI process. Its three modes are Normal (Whisper small), Heavy (Whisper large-v3-turbo), and Extra Heavy (Whisper large-v3). It downloads only the speech model for the selected mode. It has no cloud AI provider, API key setup, or second language model.
 
 Install whisper.cpp locally and follow the repository README to build the app. Model weights download from Hugging Face; dictation audio stays on the Mac. The app may contact GitHub for update and repository information.

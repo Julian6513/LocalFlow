@@ -8,7 +8,7 @@ struct SetupView: View {
     var onComplete: () -> Void
     @EnvironmentObject var appState: AppState
     @Environment(\.openURL) private var openURL
-    private let freeflowRepoURL = URL(string: "https://github.com/Julian6513/LocalFlow")!
+    private let privateflowRepoURL = URL(string: "https://github.com/Julian6513/PrivateFlow")!
     private enum SetupStep: Int, CaseIterable {
         case welcome = 0
         case localModels
@@ -208,9 +208,9 @@ struct SetupView: View {
                     .clipShape(Circle())
 
                     Button {
-                        openURL(freeflowRepoURL)
+                        openURL(privateflowRepoURL)
                     } label: {
-                        Text("Julian6513/LocalFlow")
+                        Text("Julian6513/PrivateFlow")
                             .font(.system(.caption, design: .monospaced).weight(.medium))
                     }
                     .buttonStyle(.plain)
@@ -235,7 +235,7 @@ struct SetupView: View {
                     .background(Capsule().fill(Color.yellow.opacity(0.14)))
 
                     Button {
-                        openURL(freeflowRepoURL)
+                        openURL(privateflowRepoURL)
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "star")
@@ -305,7 +305,7 @@ struct SetupView: View {
             Text("Choose a Local Dictation Mode")
                 .font(.title)
                 .fontWeight(.bold)
-            Text("LocalFlow downloads only the speech model for the mode you choose. Install whisper.cpp before dictating.")
+            Text("PrivateFlow downloads only the speech model for the mode you choose. Install whisper.cpp before dictating.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
             LocalModeSettingsView()
@@ -1237,7 +1237,7 @@ class GitHubMetadataCache: ObservableObject {
 
     private var lastFetchDate: Date?
     private let cacheDuration: TimeInterval = 5 * 60 // 5 minutes
-    private let repoAPIURL = URL(string: "https://api.github.com/repos/Julian6513/LocalFlow")!
+    private let repoAPIURL = URL(string: "https://api.github.com/repos/Julian6513/PrivateFlow")!
 
     private init() {}
 
@@ -1260,7 +1260,7 @@ class GitHubMetadataCache: ObservableObject {
             if count > 0 {
                 let perPage = 100
                 let lastPage = max(1, Int(ceil(Double(count) / Double(perPage))))
-                let stargazersURL = URL(string: "https://api.github.com/repos/Julian6513/LocalFlow/stargazers?per_page=\(perPage)&page=\(lastPage)")!
+                let stargazersURL = URL(string: "https://api.github.com/repos/Julian6513/PrivateFlow/stargazers?per_page=\(perPage)&page=\(lastPage)")!
                 var request = URLRequest(url: stargazersURL)
                 request.setValue("application/vnd.github.v3.star+json", forHTTPHeaderField: "Accept")
                 let starredResult = try await URLSession.shared.data(for: request)
@@ -1272,7 +1272,7 @@ class GitHubMetadataCache: ObservableObject {
             }
 
             var contributors: [GitHubContributor] = []
-            let contributorsURL = URL(string: "https://api.github.com/repos/Julian6513/LocalFlow/contributors?per_page=15")!
+            let contributorsURL = URL(string: "https://api.github.com/repos/Julian6513/PrivateFlow/contributors?per_page=15")!
             do {
                 let contributorsResult = try await URLSession.shared.data(from: contributorsURL)
                 if let contribHTTP = contributorsResult.1 as? HTTPURLResponse,
